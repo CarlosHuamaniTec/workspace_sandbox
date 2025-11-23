@@ -8,7 +8,7 @@ void main() {
     const agentCount = 10;
 
     final futures = List.generate(agentCount, (index) async {
-      final ws = Workspace.secure();
+      final ws = Workspace.ephemeral();
       try {
         final filename = 'agent_$index.txt';
         await ws.writeFile(filename, 'Data $index');

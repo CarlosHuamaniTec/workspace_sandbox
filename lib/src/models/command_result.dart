@@ -1,27 +1,42 @@
 /// Final result of a command executed inside a workspace.
 ///
-/// This is similar in spirit to [ProcessResult] from `dart:io`, but
-/// tailored to the workspace API and with an explicit [duration]
-/// and [isCancelled] flag.
+/// Similar to [ProcessResult] from `dart:io`, but tailored for the workspace
+/// API with additional fields for execution duration and cancellation status.
+///
+/// Example:
+/// ```
+/// final result = await ws.run('ls -la');
+/// if (result.isSuccess) {
+///   print(result.stdout);
+/// } else {
+///   print('Failed: ${result.stderr}');
+/// }
+/// ```
 class CommandResult {
   /// Exit code returned by the process.
   ///
-  /// By convention, `0` usually indicates success.
+  /// By convention, `0` indicates success, and non-zero values indicate errors.
   final int exitCode;
 
   /// Captured standard output (stdout) as text.
+  ///
+  /// This is the complete output accumulated during process execution.
   final String stdout;
 
   /// Captured standard error (stderr) as text.
+  ///
+  /// Contains error messages and diagnostic output from the process.
   final String stderr;
 
   /// Total time spent executing the command.
+  ///
+  /// Measured from process start to exit.
   final Duration duration;
 
-  /// Whether the process was cancelled by the user or a timeout.
+  /// Whether the process was cancelled by timeout or manual termination.
   ///
-  /// When `true`, callers should treat this result as incomplete, even
-  /// if [exitCode] is non‑zero.
+  /// When `true`, the result should be treated as incomplete even if
+  /// [exitCode] is set.
   final bool isCancelled;
 
   /// Creates an immutable command execution result.

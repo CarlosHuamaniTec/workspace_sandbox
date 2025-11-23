@@ -52,3 +52,15 @@ native/**/*.a
 # Precompiled Libraries
 !native/bin/linux/x64/libworkspace_core.so
 !native/bin/windows/x64/workspace_core.dll
+
+# --- Rust Build Artifacts ---
+native/target/
+native/**/*.rs.bk
+native/**/Cargo.lock
+
+# Backup files
+**/*~
+**/*.swp
+
+# Doc Api Dart
+doc/api/

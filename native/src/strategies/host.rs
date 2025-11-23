@@ -1,3 +1,5 @@
+//! Fallback strategy that executes commands without isolation.
+
 use super::base::{ExecutionContext, IsolationStrategy};
 use anyhow::Result;
 use std::process::{Command, Stdio};
@@ -6,7 +8,7 @@ use which::which;
 pub struct HostStrategy;
 
 impl IsolationStrategy for HostStrategy {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "Host (No Isolation)"
     }
 
@@ -20,7 +22,6 @@ impl IsolationStrategy for HostStrategy {
                 "echo", "dir", "del", "copy", "move", "mkdir", "rmdir", "type", "cls", "ping",
             ];
 
-            // Chequeo robusto
             if builtins.contains(&cmd_lower.as_str()) {
                 args.insert(0, "/c".to_string());
                 args.insert(1, program.clone());
@@ -31,7 +32,6 @@ impl IsolationStrategy for HostStrategy {
         let resolved_program = if program == "cmd" {
             "cmd".into()
         } else {
-            // Si which falla, usamos el original (puede ser ruta absoluta o script local)
             which(&program).unwrap_or_else(|_| program.clone().into())
         };
 

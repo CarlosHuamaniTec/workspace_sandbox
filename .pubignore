@@ -1,0 +1,19 @@
+# Exclude Rust source code (keep binaries in bin/)
+native/
+
+# Exclude temporary build artifacts
+.dart_tool/
+build/
+
+# Exclude Git metadata
+.git/
+.gitignore
+
+# Exclude editor configs
+.vscode/
+.idea/
+*.iml
+
+# Exclude local test data
+example_repo/
+*.log

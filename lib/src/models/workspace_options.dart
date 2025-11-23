@@ -2,24 +2,40 @@ import 'dart:async';
 
 /// Cooperative cancellation token for running processes.
 ///
-/// A [CancellationToken] can be passed to [WorkspaceOptions] to allow
-/// programmatic cancellation of long‑running commands.
+/// Allows external cancellation of long-running processes without directly
+/// killing them. Processes can listen to [onCancel] and perform graceful
+/// cleanup before terminating.
+///
+/// Example:
+/// ```
+/// final token = CancellationToken();
+///
+/// // In another part of the code:
+/// Timer(Duration(seconds: 5), () => token.cancel());
+///
+/// final result = await ws.run(
+///   'long_running_task.sh',
+///   options: WorkspaceOptions(cancellationToken: token),
+/// );
+/// ```
 class CancellationToken {
   final _controller = StreamController<void>.broadcast();
   bool _isCancelled = false;
 
-  /// Creates a new token that is initially not cancelled.
+  /// Creates a new cancellation token.
   CancellationToken();
 
-  /// Whether [cancel] has already been requested.
+  /// Whether this token has been cancelled.
   bool get isCancelled => _isCancelled;
 
-  /// Stream that fires once when [cancel] is called.
+  /// Stream that emits when cancellation is requested.
+  ///
+  /// Listeners can use this to perform graceful shutdown.
   Stream<void> get onCancel => _controller.stream;
 
-  /// Requests cancellation for any operation that is listening to [onCancel].
+  /// Requests cancellation and notifies all listeners.
   ///
-  /// Calling this method multiple times has no effect after the first call.
+  /// This is idempotent - calling it multiple times has no additional effect.
   void cancel() {
     if (_isCancelled) return;
     _isCancelled = true;
@@ -28,62 +44,73 @@ class CancellationToken {
   }
 }
 
-/// Configuration options for running a command inside a workspace.
+/// Configuration options for running commands in a workspace.
 ///
-/// These options control environment variables, working directory,
-/// timeouts and optional native sandboxing features.
+/// Allows customization of:
+/// - Execution timeout
+/// - Environment variables
+/// - Working directory
+/// - Sandboxing and network access
+///
+/// Example:
+/// ```
+/// final result = await ws.run(
+///   'npm install',
+///   options: WorkspaceOptions(
+///     timeout: Duration(minutes: 5),
+///     env: {'NODE_ENV': 'production'},
+///     allowNetwork: true,
+///   ),
+/// );
+/// ```
 class WorkspaceOptions {
-  /// Maximum execution time before the process is killed.
+  /// Maximum time allowed for command execution.
   ///
-  /// If `null`, no timeout is enforced by the library, and the process
-  /// will run until it completes or is cancelled manually.
+  /// If the process exceeds this duration, it will be killed and
+  /// [CommandResult.isCancelled] will be `true`.
   final Duration? timeout;
 
   /// Additional environment variables to inject into the process.
   ///
-  /// When [includeParentEnv] is `true`, these variables are merged on top of
-  /// the host process environment. If a key conflicts, the value in this map
-  /// takes precedence.
+  /// These are merged with parent environment variables if
+  /// [includeParentEnv] is `true`.
   final Map<String, String> env;
 
-  /// Whether to inherit the parent process environment variables.
+  /// Whether to inherit environment variables from the parent process.
   ///
-  /// When `true` (default), [env] extends the existing environment.
-  /// When `false`, the process starts with a minimal environment (plus [env]).
+  /// When `true` (default), the process receives all environment variables
+  /// from the Dart process, plus any additional ones from [env].
   final bool includeParentEnv;
 
-  /// Optional cooperative cancellation token.
-  ///
-  /// If provided, long‑running operations can observe this token and
-  /// terminate early when [CancellationToken.cancel] is invoked.
+  /// Optional cancellation token for cooperative process termination.
   final CancellationToken? cancellationToken;
 
-  /// Optional working directory override.
+  /// Override the working directory for command execution.
   ///
-  /// Must be a relative path to the workspace root. If `null`, the workspace
-  /// root directory is used as the current working directory.
+  /// If provided, this path is resolved relative to the workspace root.
+  /// If `null`, commands execute from the workspace root.
+  ///
+  /// Example:
+  /// ```
+  /// await ws.run('npm test', options: WorkspaceOptions(
+  ///   workingDirectoryOverride: 'packages/core',
+  /// ));
+  /// ```
   final String? workingDirectoryOverride;
 
-  /// Indicates whether this execution should be sandboxed.
+  /// Whether to enable native sandboxing (bubblewrap/JobObject/Seatbelt).
   ///
-  /// When `true`, the library attempts to use native OS isolation mechanisms:
-  /// - **Linux**: Uses `bubblewrap` (bwrap) to create a container with restricted
-  ///   filesystem access and namespaces.
-  /// - **Windows**: Uses `AppContainer` to restrict tokens and capabilities.
-  ///
-  /// Defaults to `false`.
+  /// When `true`, commands are isolated from the host system using
+  /// platform-specific sandboxing mechanisms.
   final bool sandbox;
 
-  /// Controls network access for the sandboxed process.
+  /// Whether to allow network access from sandboxed processes.
   ///
-  /// - `true` (default): The process can access the network.
-  /// - `false`: The process runs in an offline namespace (Linux) or with
-  ///   network capabilities stripped (Windows).
-  ///
-  /// Note: This option is only effective when [sandbox] is `true`.
+  /// Only applies when [sandbox] is `true`. When `false`, network access
+  /// is blocked at the sandbox level.
   final bool allowNetwork;
 
-  /// Creates a new immutable set of options for process execution.
+  /// Creates workspace execution options.
   const WorkspaceOptions({
     this.timeout,
     this.env = const {},
@@ -93,4 +120,32 @@ class WorkspaceOptions {
     this.sandbox = false,
     this.allowNetwork = true,
   });
+
+  /// Creates a copy of these options with the given fields replaced.
+  ///
+  /// Example:
+  /// ```
+  /// final baseOptions = WorkspaceOptions(timeout: Duration(seconds: 30));
+  /// final networkOptions = baseOptions.copyWith(allowNetwork: false);
+  /// ```
+  WorkspaceOptions copyWith({
+    Duration? timeout,
+    Map<String, String>? env,
+    bool? includeParentEnv,
+    CancellationToken? cancellationToken,
+    String? workingDirectoryOverride,
+    bool? sandbox,
+    bool? allowNetwork,
+  }) {
+    return WorkspaceOptions(
+      timeout: timeout ?? this.timeout,
+      env: env ?? this.env,
+      includeParentEnv: includeParentEnv ?? this.includeParentEnv,
+      cancellationToken: cancellationToken ?? this.cancellationToken,
+      workingDirectoryOverride:
+          workingDirectoryOverride ?? this.workingDirectoryOverride,
+      sandbox: sandbox ?? this.sandbox,
+      allowNetwork: allowNetwork ?? this.allowNetwork,
+    );
+  }
 }

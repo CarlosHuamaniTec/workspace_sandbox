@@ -2,13 +2,19 @@
 name = "workspace_launcher"
 version = "0.1.2"
 edition = "2021"
+authors = ["Carlos Huamani <carlos.huamani.pi@gmail.com>"]
+description = "Native isolation launcher for workspace_sandbox - Cross-platform sandboxing for Dart"
+license = "Apache-2.0"
+repository = "https://github.com/deskhand-software/workspace_sandbox"
+keywords = ["sandbox", "isolation", "security", "bubblewrap", "dart"]
+categories = ["os", "command-line-utilities", "development-tools"]
+readme = "../README.md"
 
 [dependencies]
 clap = { version = "4.4", features = ["derive"] }
-tokio = { version = "1.28", features = ["full"] }
+tokio = { version = "1.35", features = ["full"] }
 anyhow = "1.0"
-which = "4.4"
-libc = "0.2"
+which = "6.0"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.52", features = [
@@ -16,5 +22,14 @@ windows = { version = "0.52", features = [
     "Win32_System_Threading",
     "Win32_Foundation",
     "Win32_Security",
-    "Win32_System_SystemServices"
 ] }
+
+[[bin]]
+name = "workspace_launcher"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = "z"     # Optimize for size
+lto = true          # Link-time optimization
+codegen-units = 1   # Better optimization
+strip = true        # Remove debug symbols

@@ -1,3 +1,12 @@
+//! Native launcher for `workspace_sandbox` isolation.
+//!
+//! This binary provides cross-platform sandboxing capabilities for executing
+//! commands in isolated environments. It's invoked by the Dart `workspace_sandbox`
+//! package and should not be called directly by end users.
+
+#![warn(clippy::all, clippy::pedantic)]
+#![allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+
 mod engine;
 mod strategies;
 
@@ -7,20 +16,31 @@ use clap::Parser;
 use std::process;
 
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(
+    name = "workspace_launcher",
+    version,
+    about = "Native isolation launcher for workspace_sandbox",
+    long_about = "Executes commands in isolated environments using platform-specific sandboxing"
+)]
 struct Args {
     #[arg(long)]
     id: String,
+
     #[arg(long)]
     workspace: String,
+
     #[arg(long)]
     sandbox: bool,
+
     #[arg(long)]
     no_net: bool,
+
     #[arg(long)]
     cwd: Option<String>,
+
     #[arg(long, value_parser = parse_key_val)]
     env: Vec<(String, String)>,
+
     #[arg(last = true)]
     command: Vec<String>,
 }
@@ -28,7 +48,7 @@ struct Args {
 fn parse_key_val(s: &str) -> Result<(String, String), String> {
     let pos = s
         .find('=')
-        .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{}`", s))?;
+        .ok_or_else(|| format!("Invalid KEY=value format: no '=' found in `{s}`"))?;
     Ok((s[..pos].to_string(), s[pos + 1..].to_string()))
 }
 
@@ -56,7 +76,7 @@ async fn main() {
     match engine.run(ctx).await {
         Ok(code) => process::exit(code),
         Err(e) => {
-            eprintln!("[Launcher] FATAL ERROR: {:#}", e);
+            eprintln!("[Launcher] FATAL ERROR: {e:#}");
             process::exit(99);
         }
     }

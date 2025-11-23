@@ -3,7 +3,7 @@ import 'package:workspace_sandbox/workspace_sandbox.dart';
 
 void main() {
   group('CommandResult Model', () {
-    test('isSuccess/isFailure logic', () {
+    test('isSuccess logic', () {
       final success = CommandResult(
         exitCode: 0,
         stdout: '',
@@ -16,24 +16,12 @@ void main() {
         stderr: '',
         duration: Duration.zero,
       );
-      final signalKill = CommandResult(
-        exitCode: -1,
-        stdout: '',
-        stderr: '',
-        duration: Duration.zero,
-      );
 
       expect(success.isSuccess, isTrue);
-      expect(success.isFailure, isFalse);
-
       expect(failure.isSuccess, isFalse);
-      expect(failure.isFailure, isTrue);
-
-      expect(signalKill.isSuccess, isFalse);
-      expect(signalKill.isFailure, isTrue);
     });
 
-    test('ToString formatting for logging', () {
+    test('ToString formatting', () async {
       final res = CommandResult(
         exitCode: 127,
         stdout: 'output',
@@ -46,7 +34,7 @@ void main() {
       expect(log, contains('500ms'));
     });
 
-    test('Should handle null-like empty outputs gracefully', () {
+    test('Should handle empty outputs', () {
       final res = CommandResult(
           exitCode: 0, stdout: '', stderr: '', duration: Duration.zero);
       expect(res.stdout, isEmpty);

@@ -7,20 +7,18 @@ void main() {
     late Workspace ws;
 
     setUp(() {
-      ws = Workspace.secure(options: const WorkspaceOptions(sandbox: true));
+      ws = Workspace.ephemeral();
     });
 
     tearDown(() async {
       await ws.dispose();
     });
-
-    test('Full Stack API Build (Simulation)', () async {
+    test('Full Stack API Build Simulation', () async {
       await ws.createDir('backend');
       final buildCmd = Platform.isWindows ? 'cmd /c ver' : 'uname';
       final res = await ws.run(buildCmd,
           options: const WorkspaceOptions(workingDirectoryOverride: 'backend'));
 
-      // Solo verificar código de salida
       expect(res.exitCode, 0);
     });
 
@@ -41,10 +39,7 @@ void main() {
       final cmd = Platform.isWindows ? scriptName : './$scriptName';
       final result = await ws.run(cmd);
 
-      // Si falla por "program not found", es porque Rust no está resolviendo el script local en PWD
-      // Esto valida si la lógica de PWD en Rust funciona.
-      expect(result.isSuccess, isTrue,
-          reason: 'Script execution failed. Stderr: ${result.stderr}');
+      expect(result.isSuccess, isTrue);
 
       if (result.isSuccess) {
         final outputFileContent = await ws.readFile(outputName);

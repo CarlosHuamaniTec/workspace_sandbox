@@ -1,5 +1,9 @@
+//! Linux isolation using Bubblewrap with root passthrough strategy.
+
 use super::base::{ExecutionContext, IsolationStrategy};
 use anyhow::{Context, Result};
+use std::env;
+use std::fs;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use which::which;
@@ -7,116 +11,129 @@ use which::which;
 pub struct LinuxBwrapStrategy;
 
 impl IsolationStrategy for LinuxBwrapStrategy {
-    fn name(&self) -> &str {
-        "Linux Bubblewrap"
+    fn name(&self) -> &'static str {
+        "Linux Bubblewrap (Root Passthrough)"
     }
 
+    #[allow(clippy::too_many_lines)]
     fn build_command(&self, ctx: &ExecutionContext) -> Result<Command> {
-        let bwrap_path = which("bwrap").context("bwrap not found")?;
+        let bwrap_path = which("bwrap")
+            .context("bwrap not found. Install with: sudo apt install bubblewrap")?;
         let mut command = Command::new(bwrap_path);
 
-        // --- Base Isolation ---
         command
-            .arg("--unshare-all")
-            .arg("--new-session")
-            .arg("--die-with-parent");
+            .arg("--die-with-parent")
+            .arg("--unshare-pid")
+            .arg("--unshare-ipc")
+            .arg("--unshare-uts");
 
-        // --- Filesystem Construction (Usr Merge Compatibility) ---
-        // Instead of binding /bin or /lib directly, we bind /usr and symlink them.
-        // This is robust for modern distros (Fedora, Debian, Ubuntu/WSL).
-        command
-            .arg("--tmpfs")
-            .arg("/")
-            .arg("--ro-bind")
-            .arg("/usr")
-            .arg("/usr")
-            .arg("--symlink")
-            .arg("usr/lib")
-            .arg("/lib")
-            .arg("--symlink")
-            .arg("usr/lib64")
-            .arg("/lib64")
-            .arg("--symlink")
-            .arg("usr/bin")
-            .arg("/bin")
-            .arg("--symlink")
-            .arg("usr/sbin")
-            .arg("/sbin")
-            .arg("--proc")
-            .arg("/proc")
-            .arg("--dev")
-            .arg("/dev")
-            .arg("--tmpfs")
-            .arg("/tmp");
-
-        // --- System Configuration (Selective Bind) ---
-        // We purposefully avoid mounting the entire /etc directory to prevent
-        // conflicts with broken symlinks (common in WSL for resolv.conf).
-        let etc_binds = [
-            "/etc/resolv.conf",
-            "/etc/hosts",
-            "/etc/ssl/certs",
-            "/etc/alternatives",
-            "/etc/environment",
-            "/etc/passwd",
-            "/etc/group",
-            "/etc/nsswitch.conf",
-            "/etc/localtime",
-        ];
-
-        for path in &etc_binds {
-            // Check if file exists on host before trying to bind
-            if Path::new(path).exists() {
-                // If it's a symlink (like resolv.conf often is), resolving it ensures
-                // we bind the actual target file, bypassing broken link issues.
-                if let Ok(real_path) = std::fs::canonicalize(path) {
-                    command.arg("--ro-bind").arg(real_path).arg(path);
-                } else {
-                    command.arg("--ro-bind").arg(path).arg(path);
-                }
-            }
-        }
-
-        // --- Dev Tools & Libraries ---
-        for dir in ["/opt", "/snap", "/usr/local"] {
-            if Path::new(dir).exists() {
-                command.arg("--ro-bind").arg(dir).arg(dir);
-            }
-        }
-
-        // --- Network ---
         if ctx.allow_network {
             command.arg("--share-net");
         } else {
             command.arg("--unshare-net");
         }
 
-        // --- Workspace & CWD ---
-        command.arg("--bind").arg(&ctx.root_path).arg("/app");
-        command.arg("--chdir").arg("/app");
-
-        // --- Environment ---
-        command.env_clear();
-        // Pass-through host environment variables for maximum compatibility
-        for (key, value) in std::env::vars() {
-            command.arg("--setenv").arg(&key).arg(&value);
-        }
-        // Overrides
-        command.arg("--setenv").arg("HOME").arg("/tmp");
-        command.arg("--setenv").arg("TERM").arg("xterm-256color");
-
-        // Inject user-defined variables
-        for (key, val) in &ctx.env_vars {
-            command.arg("--setenv").arg(key).arg(val);
-        }
-
-        // --- Capabilities ---
-        command.arg("--cap-drop").arg("ALL");
-
-        // --- User Command ---
-        command.arg("--").arg(&ctx.cmd).args(&ctx.args);
+        command.arg("--ro-bind").arg("/").arg("/");
 
         command
+            .arg("--dev")
+            .arg("/dev")
+            .arg("--proc")
+            .arg("/proc")
+            .arg("--tmpfs")
+            .arg("/tmp")
+            .arg("--tmpfs")
+            .arg("/var/tmp")
+            .arg("--tmpfs")
+            .arg("/root")
+            .arg("--tmpfs")
+            .arg("/run");
+
+        if let Ok(_resolv_target) = fs::read_link("/etc/resolv.conf") {
+            if let Ok(real_path) = fs::canonicalize("/etc/resolv.conf") {
+                let real_path_str = real_path.to_string_lossy();
+
+                if real_path_str.starts_with("/run") {
+                    if let Some(parent) = real_path.parent() {
+                        command
+                            .arg("--dir")
+                            .arg(parent.to_string_lossy().to_string());
+                    }
+                    command
+                        .arg("--ro-bind")
+                        .arg(&real_path)
+                        .arg(&real_path);
+                }
+            }
+        } else if Path::new("/etc/resolv.conf").exists() {
+            command
+                .arg("--ro-bind")
+                .arg("/etc/resolv.conf")
+                .arg("/etc/resolv.conf");
+        }
+
+        if let Ok(home) = env::var("HOME") {
+            let home_path = Path::new(&home);
+            if home_path.exists() {
+                command.arg("--tmpfs").arg(&home);
+
+                let tool_caches = [
+                    ".m2",
+                    ".gradle",
+                    ".npm",
+                    ".pub-cache",
+                    ".cargo",
+                    ".rustup",
+                    ".local/share/pnpm",
+                    "go/pkg",
+                    ".config/gcloud",
+                    ".flutter",
+                ];
+
+                for cache_dir in tool_caches {
+                    let source_path = home_path.join(cache_dir);
+                    if source_path.exists() {
+                        let dest_path = format!("{home}/{cache_dir}");
+                        command
+                            .arg("--ro-bind")
+                            .arg(source_path.to_string_lossy().to_string())
+                            .arg(dest_path);
+                    }
+                }
+            }
+        }
+
+        command
+            .arg("--bind")
+            .arg(&ctx.root_path)
+            .arg(&ctx.root_path)
+            .arg("--chdir")
+            .arg(&ctx.root_path);
+
+        command.env_clear();
+        let keep_vars = [
+            "PATH",
+            "JAVA_HOME",
+            "FLUTTER_ROOT",
+            "GOPATH",
+            "TERM",
+            "LANG",
+            "HOME",
+            "SHELL",
+        ];
+        for k in keep_vars {
+            if let Ok(v) = env::var(k) {
+                command.env(k, v);
+            }
+        }
+        for (key, val) in &ctx.env_vars {
+            command.env(key, val);
+        }
+
+        command
+            .arg("--")
+            .arg(&ctx.cmd)
+            .args(&ctx.args)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());

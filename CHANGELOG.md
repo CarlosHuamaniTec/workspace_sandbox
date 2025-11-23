@@ -7,6 +7,99 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.2] - 2025-11-23
+
+### 🔥 Breaking Changes
+
+**Complete Native Architecture Rewrite**
+- Migrated from FFI + C++ to **pure Rust** standalone binary
+- Native launcher now runs as separate process (`workspace_launcher` binary)
+- Communication via serialized CLI arguments instead of FFI calls
+- **Rationale:** Better cross-platform compatibility, easier maintenance, eliminated FFI marshalling overhead
+
+**API Compatibility:** No breaking changes for Dart users. All public APIs remain identical.
+
+### Added
+
+**Event System & Reactive Logging**
+- `Workspace.onEvent` stream for real-time workspace monitoring
+- `ProcessLifecycleEvent`: Track process start/stop with PID and exit codes
+- `ProcessOutputEvent`: Stream stdout/stderr chunks in real-time
+- `WorkspaceEvent` base class with timestamp and workspace ID
+
+**macOS Support**
+- Full sandboxing via **Seatbelt** (sandbox-exec)
+- Read-only host filesystem with workspace write access
+- Network isolation control
+- Binaries included: `bin/macos/x64/workspace_launcher`
+
+**Enhanced Examples**
+- `01_advanced_python_api.dart`: HTTP server with streaming logs
+- `02_security_audit.dart`: Network isolation validation
+- `03_git_workflow_at.dart`: Persistent workspace git operations
+- `04_data_processing_spawn.dart`: Long-running background processes
+- `05_interactive_repl.dart`: Real-time stdin/stdout interaction
+- `example.dart`: Quick-start basic usage
+
+### Changed
+
+**Windows Sandboxing Overhaul**
+- Replaced **AppContainer** with **Job Objects**
+- Fixes Maven/Gradle cache detection issues (AppContainer broke user home paths)
+- More reliable process group termination
+- Network isolation via environment variable proxies
+
+**Linux Sandboxing Improvements**
+- **Root Passthrough** strategy: Mount entire host as read-only
+- Selective tool cache exposure (`.m2`, `.gradle`, `.cargo`, `.pub-cache`)
+- Fixed DNS resolution in sandboxed environments (handle `/run` symlinks)
+- Improved compatibility with WSL2 and modern distributions
+
+**Internal Refactoring**
+- New modular Rust architecture:
+  - `strategies/` directory with platform-specific isolation
+  - `base.rs`: Core `IsolationStrategy` trait
+  - `linux.rs`, `windows.rs`, `macos.rs`, `host.rs`: Platform implementations
+- `LauncherService` now spawns native binary with `--id`, `--workspace`, `--sandbox`, `--no-net` flags
+- `ShellWrapper` handles cross-platform shell invocation (`cmd.exe` vs `/bin/sh`)
+
+**Documentation**
+- Complete API documentation (160/160 Pana score)
+- All public symbols documented with examples
+- Rust code fully commented (Clippy pedantic compliant)
+
+### Fixed
+
+- **Windows:** Job Objects correctly handle child process termination
+- **Linux:** Bubblewrap now mounts tool caches for Maven/Gradle/NPM
+- **Cross-platform:** UTF-8 decoding with `allowMalformed: true` for non-Unicode output (Windows CP850)
+- **Network isolation:** Actually enforced at OS level (not just heuristic blocking)
+- **Process streams:** Broadcast controllers allow multiple listeners
+
+### Security
+
+**Enhanced Isolation**
+- macOS Seatbelt profiles block unauthorized filesystem access
+- Linux network namespaces provide kernel-level network blocking
+- Windows Job Objects prevent privilege escalation
+- All platforms enforce workspace root confinement
+
+### Technical Details
+
+**Native Binary Stack**
+- Rust 1.83+ with Tokio async runtime
+- Dependencies: `anyhow`, `clap`, `tokio`, `which`
+- Cross-compilation support for all three platforms
+- Binary sizes: ~800KB per platform
+
+**Build System**
+- `cargo build --release` for native binaries
+- Prebuilt binaries included in `bin/{linux,windows,macos}/x64/`
+- Source code in `native/src/` (Rust)
+- No C++ dependencies
+
+---
+
 ## [0.1.1] - 2025-11-22
 
 ### Added
