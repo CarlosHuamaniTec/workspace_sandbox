@@ -28,7 +28,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  workspace_sandbox: ^0.1.5
+  workspace_sandbox: ^0.1.6
 ```
 
 Then run:
@@ -274,5 +274,4 @@ Please ensure native launcher builds on all platforms.
 
 ## Links
 - **Documentation:** https://pub.dev/packages/workspace_sandbox
-- **Issues:** https://github.com/deskhand-software/workspace_sandbox/issues
-- **Organization:** https://deskhand.dev
+- **Issues:** https://github.com/CarlosHuamaniTec/workspace_sandbox/issues
