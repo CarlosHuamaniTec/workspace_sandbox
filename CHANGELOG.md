@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.6] - 2025-12-12
+
+### Changed
+- Project ownership transferred to Carlos Huamani. Repository and issue tracker links have been updated accordingly.
+
+---
+
 ## [0.1.5] - 2025-11-24
 
 ### BREAKING CHANGES
@@ -297,8 +304,10 @@ The launcher now parses `.dart_tool/package_config.json` to reliably locate the 
 
 ---
 
-[0.1.4]: https://github.com/deskhand-software/workspace_sandbox/compare/v0.1.3...v0.1.4
-[0.1.3]: https://github.com/deskhand-software/workspace_sandbox/compare/v0.1.2...v0.1.3
-[0.1.2]: https://github.com/deskhand-software/workspace_sandbox/compare/v0.1.1...v0.1.2
-[0.1.1]: https://github.com/deskhand-software/workspace_sandbox/compare/v0.1.0...v0.1.1
-[0.1.0]: https://github.com/deskhand-software/workspace_sandbox/releases/tag/v0.1.0
+[0.1.6]: https://github.com/CarlosHuamaniTec/workspace_sandbox/compare/v0.1.5...v0.1.6
+[0.1.5]: https://github.com/CarlosHuamaniTec/workspace_sandbox/compare/v0.1.4...v0.1.5
+[0.1.4]: https://github.com/CarlosHuamaniTec/workspace_sandbox/compare/v0.1.3...v0.1.4
+[0.1.3]: https://github.com/CarlosHuamaniTec/workspace_sandbox/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/CarlosHuamaniTec/workspace_sandbox/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/CarlosHuamaniTec/workspace_sandbox/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/CarlosHuamaniTec/workspace_sandbox/releases/tag/v0.1.0
